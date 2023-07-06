@@ -1,0 +1,40 @@
+FROM docker.io/webdevops/php:8.2
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y  \
+    git \
+    curl \
+    zip \
+    unzip \
+    cron
+
+# Clear cache
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+
+ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
+
+# Copia do código fonte do projeto para o container
+COPY ./src/app /var/www/app
+
+WORKDIR /var/www
+
+RUN mkdir -p /storage/logs/crontab
+
+RUN touch /storage/logs/crontab/crontab.log
+
+# copy the crontab in a location where it will be parsed by the system
+COPY ./docker-compose/php/cron.d/crontab /etc/cron.d/crontab
+
+# owner can read and write into the crontab, group and others can read it
+RUN chmod 0644 /etc/cron.d/crontab
+
+# running our crontab using the binary from the package we installed
+RUN /usr/bin/crontab /etc/cron.d/crontab
+
+# Set working directory
+WORKDIR /var/www/app
+
+# Adicionar os caminhos ao PATH
+ENV PATH="${PATH}:/var/www/app/vendor/bin"
+
+# RUN php vendor/bin/phinx seed:run

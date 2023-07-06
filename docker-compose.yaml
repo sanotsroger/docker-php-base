@@ -1,0 +1,117 @@
+version: "3.9"
+
+#--------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------
+# Data Persistence
+#--------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------
+
+volumes:
+  postgres_data:
+  pgadmin4_data:
+
+services:
+  #--------------------------------------------------------------------------------
+  #--------------------------------------------------------------------------------
+  # Postgres Database
+  #--------------------------------------------------------------------------------
+  #--------------------------------------------------------------------------------
+  postgres:
+    image: docker.io/bitnami/postgresql:15
+    container_name: postgres-db
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRESQL_DATABASE: ${POSTGRES_DB}
+      POSTGRESQL_USERNAME: ${POSTGRES_USER}
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/bitnami/postgresql
+    networks:
+      - backend
+
+  #--------------------------------------------------------------------------------
+  #--------------------------------------------------------------------------------
+  # PGAdmin4
+  #--------------------------------------------------------------------------------
+  #--------------------------------------------------------------------------------
+  pgadmin4:
+    image: docker.io/dpage/pgadmin4
+    container_name: pgadmin4
+    ports:
+      - "15432:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+    volumes:
+      - pgadmin4_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    networks:
+      - backend
+
+  #--------------------------------------------------------------------------------
+  #--------------------------------------------------------------------------------
+  # Nginx - Public access
+  #--------------------------------------------------------------------------------
+  #--------------------------------------------------------------------------------
+  nginx:
+    image: docker.io/nginx:1.23.1-alpine
+    container_name: nginx-web
+    build:
+      context: ./docker-compose/nginx
+      args:
+        - CHANGE_SOURCE=${CHANGE_SOURCE}
+        - PHP_UPSTREAM_CONTAINER=${PHP_UPSTREAM_CONTAINER}
+        - PHP_UPSTREAM_PORT=${PHP_UPSTREAM_PORT}
+        - http_proxy
+        - https_proxy
+        - no_proxy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "81:81"
+    volumes:
+      - ./src:/var/www
+      - ./docker-compose/nginx/log/:/var/log/nginx
+      - ./docker-compose/nginx/sites/:/etc/nginx/sites-available
+      - ./docker-compose/nginx/ssl/:/etc/nginx/ssl
+    networks:
+      - frontend
+    depends_on:
+      - php
+
+  #--------------------------------------------------------------------------------
+  #--------------------------------------------------------------------------------
+  # PHP-FPM
+  #--------------------------------------------------------------------------------
+  #--------------------------------------------------------------------------------
+  php:
+    build:
+      context: .
+      dockerfile: Dockerfile.php.dev
+    image: php
+    container_name: php
+    working_dir: /var/www/app
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./src:/var/www
+      - ./docker-compose/php/php.ini:/opt/docker/etc/php/php.ini
+      - ./docker-compose/php/supervisor.conf:/opt/docker/etc/supervisor.conf
+      - ./docker-compose/php/supervisor.d/:/custom/supervisor.d
+    networks:
+      - backend
+      - frontend
+    depends_on:
+      - postgres
+
+networks:
+  backend:
+    driver: bridge
+  frontend:
+    driver: bridge

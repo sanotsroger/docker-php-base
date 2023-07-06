@@ -1,0 +1,3 @@
+# run the test script every minute and output whatever it echoes in a log file
+# using `>` instead of `>>` to append a new line at each cron iteration
+# * * * * * /usr/local/bin/php /var/www/app/public/test_cron.php >> /var/www/storage/logs/crontab/crontab.log 2>&1
