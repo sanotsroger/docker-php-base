@@ -99,6 +99,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      XDEBUG_MODE: ${XDEBUG_MODE:-off}
     volumes:
       - ./src:/var/www
       - ./docker-compose/php/php.ini:/opt/docker/etc/php/php.ini
@@ -109,6 +110,9 @@ services:
       - frontend
     depends_on:
       - postgres
+    # Only linux
+    extra_hosts:
+      - host.docker.internal:host-gateway
 
 networks:
   backend:

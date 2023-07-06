@@ -1,5 +1,10 @@
 FROM docker.io/webdevops/php:8.2
 
+# Adicionar os caminhos ao PATH
+ENV PATH="${PATH}:/var/www/app/vendor/bin"
+
+ENV XDEBUG_MODE=off
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y  \
     git \
@@ -11,7 +16,13 @@ RUN apt-get update && apt-get install -y  \
 # Clear cache
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
-ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
+COPY --from=mlocati/php-extension-installer /usr/bin/install-php-extensions /usr/local/bin/
+
+RUN set -eux; \
+    install-php-extensions \
+    xdebug
+
+COPY --from=composer:2.4 /usr/bin/composer /usr/bin/composer
 
 # Copia do código fonte do projeto para o container
 COPY ./src/app /var/www/app
@@ -34,7 +45,9 @@ RUN /usr/bin/crontab /etc/cron.d/crontab
 # Set working directory
 WORKDIR /var/www/app
 
-# Adicionar os caminhos ao PATH
-ENV PATH="${PATH}:/var/www/app/vendor/bin"
+# install
+# RUN composer install --prefer-dist --no-dev --no-scripts --no-progress --no-interaction
+
+# RUN composer dump-autoload --optimize
 
 # RUN php vendor/bin/phinx seed:run
